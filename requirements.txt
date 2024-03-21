@@ -1,0 +1,7 @@
+python-dateutil
+feedparser
+requests
+beautifulsoup4
+openai
+python-dotenv
+tiktoken
