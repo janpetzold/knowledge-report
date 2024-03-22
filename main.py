@@ -9,72 +9,6 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import tiktoken
 
-# Verified feeds
-# http://feeds.feedburner.com/ThePragmaticEngineer
-# https://dev.37signals.com/feed/posts.xml
-# https://medium.com/feed/airbnb-engineering
-# https://aws.amazon.com/blogs/aws/feed
-# https://www.databricks.com/feed
-# https://dropbox.tech/feed
-# https://blog.digitalocean.com/rss
-# https://tech.ebayinc.com/rss
-# https://code.facebook.com/posts/rss
-# https://blog.research.google/atom.xml
-# https://googleonlinesecurity.blogspot.com/atom.xml
-# https://www.theguardian.com/info/series/engineering-blog/rss
-# https://www.hashicorp.com/blog/feed.xml
-# https://www.heise.de/developer/rss/news-atom.xml
-# https://www.heise.de/security/rss/news-atom.xml
-# https://blog.heroku.com/engineering/feed
-# https://medium.com/feed/intel-tech
-# https://instagram-engineering.com/feed
-# https://medium.engineering/feed
-# https://hacks.mozilla.org/feed/
-# https://blog.mozilla.org/feed
-# https://devblogs.microsoft.com/java/feed/
-# https://devblogs.microsoft.com/devops/feed/
-# https://medium.com/feed/netflix-techblog
-# https://open.nytimes.com/feed
-# https://blogs.nvidia.com/feed
-# https://developer.okta.com/feed.xml
-# https://blog.palantir.com/feed/
-# https://medium.com/feed/paypal-tech
-# https://medium.com/feed/@Pinterest_Engineering
-# https://medium.com/feed/better-practices
-# https://developers.redhat.com/blog/feed/atom/
-# https://developer.salesforce.com/blogs/feed
-# https://shopify.engineering/blog.atom
-# https://slack.engineering/feed
-# https://developers.soundcloud.com/blog.rss
-# https://engineering.atspotify.com/feed
-# https://stackoverflow.blog/engineering/feed
-# https://stripe.com/blog/feed.rss
-# https://www.thoughtworks.com/rss/insights.xml
-# https://medium.com/feed/tinder
-# https://blog.twitter.com/engineering/feed
-# https://medium.com/feed/twitch-news/tagged/engineering
-# https://yahooeng.tumblr.com/rss
-# https://www.igvita.com/feed/
-# https://www.joelonsoftware.com/feed/
-# https://martinfowler.com/feed.atom
-# http://feeds.hanselman.com/ScottHanselman
-# https://android-developers.blogspot.com/atom.xml
-# https://developers.googleblog.com/atom.xml
-# https://blog.rust-lang.org/feed.xml
-# http://blog.samaltman.com/posts.atom
-# https://www.forbes.com/innovation/feed2
-# http://www.theverge.com/rss/full.xml
-# https://techcrunch.com/feed/
-# https://feeds.feedburner.com/martinkl?format=xml
-# http://news.mit.edu/rss/topic/artificial-intelligence2
-# https://openai.com/blog/rss.xml
-# http://googleresearch.blogspot.com/atom.xml
-# https://towardsdatascience.com/feed
-# https://www.amazon.science/index.rss
-# https://freakonomics.com/blog/feed
-# http://feeds.harvardbusiness.org/harvardbusiness/
-#
-
 # Most feeds have a "updated" field to indicate last posting but not all
 def get_last_update_field_for_feed(feed):
     if(hasattr(feed, "updated")):
@@ -86,6 +20,15 @@ def get_last_update_field_for_feed(feed):
     else:
         # Fallback - return something old as indication to check the feed
         return 'Sun, 10 Oct 1982 10:10:00 GMT'
+    
+def get_publish_field_for_article(item):
+    if(hasattr(item, "published") and len(item.published) > 0):
+        return item.published
+    elif(hasattr(item, "updated") and len(item.updated) > 0):
+        return item.updated
+    else:
+        # Fallback - if it doesn't exist take yesterday to include the article
+        return (datetime.now() - timedelta(days=1)).date().isoformat()
 
 def is_feed_outdated(update_date) -> bool:
     feed_update_date = parser.parse(update_date)
@@ -100,6 +43,18 @@ def is_feed_outdated(update_date) -> bool:
     
     return False
 
+def is_article_outdated(publish_date) -> bool:
+    article_publish_date = parser.parse(publish_date)
+    article_publish_date_utc = article_publish_date.astimezone(tz.tzutc())
+
+    # Get the current datetime in UTC for comparison
+    current_date_utc = datetime.now(tz.tzutc())
+    one_year_ago_utc = current_date_utc - timedelta(days=366)
+
+    if article_publish_date_utc < one_year_ago_utc:
+        return True
+    
+    return False
 
 def num_tokens_from_string(string: str) -> int:
     encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
@@ -113,21 +68,23 @@ def get_cost_from_tokens(num_tokens: int) -> float:
 
 
 def analyze_with_openai(url, text):
-    response = client.chat.completions.create(
-        model = "gpt-3.5-turbo-0125",
-        temperature = 0.1,
-        max_tokens = 64,
-        messages = [
-            {"role": "system", "content": os.getenv('PROMPT')},
-            {"role": "user", "content": text}
-        ]
-    )
+    # Due to limited context window we need to ignore very large articles
+    if(num_tokens_from_string(text) < 16385):
+        response = client.chat.completions.create(
+            model = "gpt-3.5-turbo-0125",
+            temperature = 0.1,
+            max_tokens = 64,
+            messages = [
+                {"role": "system", "content": os.getenv('PROMPT')},
+                {"role": "user", "content": text}
+            ]
+        )
 
-    response_text = response.choices[0].message.content
-    if "yes" in response_text.lower():
-        findings.append({url : response_text})
-        print("New finding - URL: " + url)
-        print(response_text)
+        response_text = response.choices[0].message.content
+        if "yes" in response_text.lower():
+            findings.append({url : response_text})
+            print("New finding - URL: " + url)
+            print(response_text)
 
 def get_url_history():
     with open("history.log", 'r') as file:
@@ -179,72 +136,8 @@ start_time = time.time()
 
 load_dotenv()
 
-feed_list = [
-    "http://feeds.feedburner.com/ThePragmaticEngineer",
-    "https://dev.37signals.com/feed/posts.xml",
-    "https://medium.com/feed/airbnb-engineering",
-    "https://aws.amazon.com/blogs/aws/feed",
-    "https://www.databricks.com/feed",
-    "https://dropbox.tech/feed",
-    "https://blog.digitalocean.com/rss",
-    "https://tech.ebayinc.com/rss",
-    "https://code.facebook.com/posts/rss",
-    "https://blog.research.google/atom.xml",
-    "https://googleonlinesecurity.blogspot.com/atom.xml",
-    "https://www.theguardian.com/info/series/engineering-blog/rss",
-    "https://www.hashicorp.com/blog/feed.xml",
-    "https://www.heise.de/developer/rss/news-atom.xml",
-    "https://www.heise.de/security/rss/news-atom.xml",
-    "https://blog.heroku.com/engineering/feed",
-    "https://medium.com/feed/intel-tech",
-    "https://instagram-engineering.com/feed",
-    "https://medium.engineering/feed",
-    "https://hacks.mozilla.org/feed/",
-    "https://blog.mozilla.org/feed",
-    "https://devblogs.microsoft.com/java/feed/",
-    "https://devblogs.microsoft.com/devops/feed/",
-    "https://medium.com/feed/netflix-techblog",
-    "https://open.nytimes.com/feed",
-    "https://blogs.nvidia.com/feed",
-    "https://developer.okta.com/feed.xml",
-    "https://blog.palantir.com/feed/",
-    "https://medium.com/feed/paypal-tech",
-    "https://medium.com/feed/@Pinterest_Engineering",
-    "https://medium.com/feed/better-practices",
-    "https://developers.redhat.com/blog/feed/atom/",
-    "https://developer.salesforce.com/blogs/feed",
-    "https://shopify.engineering/blog.atom",
-    "https://slack.engineering/feed",
-    "https://developers.soundcloud.com/blog.rss",
-    "https://engineering.atspotify.com/feed",
-    "https://stackoverflow.blog/engineering/feed",
-    "https://stripe.com/blog/feed.rss",
-    # "https://www.thoughtworks.com/rss/insights.xml",
-    # "https://medium.com/feed/tinder",
-    # "https://blog.twitter.com/engineering/feed",
-    # "https://medium.com/feed/twitch-news/tagged/engineering",
-    # "https://yahooeng.tumblr.com/rss",
-    # "https://www.igvita.com/feed/",
-    # "https://www.joelonsoftware.com/feed/",
-    # "https://martinfowler.com/feed.atom",
-    # "http://feeds.hanselman.com/ScottHanselman",
-    # "https://android-developers.blogspot.com/atom.xml",
-    # "https://developers.googleblog.com/atom.xml",
-    # "https://blog.rust-lang.org/feed.xml",
-    # "http://blog.samaltman.com/posts.atom",
-    # "https://www.forbes.com/innovation/feed2",
-    # "http://www.theverge.com/rss/full.xml",
-    # "https://techcrunch.com/feed/",
-    # "https://feeds.feedburner.com/martinkl?format=xml",
-    # "http://news.mit.edu/rss/topic/artificial-intelligence2",
-    # "https://openai.com/blog/rss.xml",
-    # "http://googleresearch.blogspot.com/atom.xml",
-    # "https://towardsdatascience.com/feed",
-    # "https://www.amazon.science/index.rss",
-    # "https://freakonomics.com/blog/feed",
-    # "http://feeds.harvardbusiness.org/harvardbusiness/"
-]
-
+feed_urls = os.getenv('FEEDS')
+feed_list = feed_urls.split(",")
 
 # Collect all feeds without update in the last 30 days here
 feed_list_outdated_feeds = []
@@ -263,11 +156,15 @@ for source in feed_list:
 
     update_field = get_last_update_field_for_feed(feed)
 
+    # Add entry for all feeds that have not been updated in the last 30 days to indicate stale feeds
     if(is_feed_outdated(update_field)):
         feed_list_outdated_feeds.append(feed.href)
 
+    # Only check articles of the last year
     for item in feed.entries:
-        feed_all.append(f'{item.link}')
+        publish_field = get_publish_field_for_article(item)
+        if(is_article_outdated(publish_field) == False):
+            feed_all.append(f'{item.link}')
 
 count_urls = 0
 count_total_characters = 0
