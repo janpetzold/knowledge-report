@@ -6,7 +6,7 @@ The resulting data is exported to Markdown file as basic report and sent via mai
 
 The URL for articles that were already analyzed are stored in a logfile (`history.log`) that is read on startup to avoid re-analyzing content that has already been processed. 
 
-## Gettings tarted & some numbers
+## Getting started & some numbers
 
 I just run this on my local machine via
 
@@ -19,9 +19,12 @@ A full run for me includes 62 blogs, last time I executed this it resulted in 16
 
 Everything relevant needs to be supplied via `.env` file in the main folder with the following variables:
 
-    FEEDS=YOUR-FEED-URL1,YOUR-FEED-URL2,...
-    OPENAI_API_KEY=YOUR-API-KEY
-    PROMPT=YOUR-PROMPT
+    FEEDS=Comma-separated URLs of feeds
+    PROMPT=Prompt for OpenAI API
+    MAIL_SENDER=Sender mail address for the report
+    MAIL_RECIPIENT=Mail recipient of the report
+    OPENAI_API_KEY=OpenAI API key
+    MAILERSEND_API_KEY=Mail provider API key
 
 The prompt follows the usual format like "You are a scientist and want to..."
 
@@ -42,8 +45,9 @@ I created this basically to collect interesting blog posts for myself. Since I u
 ## TODOs
 
 - [x] externalize feed URLs to .env
-- [ ] add title of article to report
+- [x] add title of article to report
 - [ ] add sample report to /examples
-- [ ] add mail sending
+- [x] add mail sending
 - [ ] eliminate identical headers/tails of articles before analysis
-- [ ] ignore posts older than 12 months as additional safety net
+- [x] ignore posts older than 12 months as additional safety net
+- [x] add feeds and prompt to the mail as "backup"

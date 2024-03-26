@@ -7,6 +7,8 @@ import requests
 from bs4 import BeautifulSoup
 from openai import OpenAI
 from dotenv import load_dotenv
+import base64
+from mailersend import emails
 import tiktoken
 
 # Most feeds have a "updated" field to indicate last posting but not all
@@ -67,7 +69,7 @@ def get_cost_from_tokens(num_tokens: int) -> float:
     return round(price, 2)
 
 
-def analyze_with_openai(url, text):
+def analyze_with_openai(item, text):
     # Due to limited context window we need to ignore very large articles
     if(num_tokens_from_string(text) < 16385):
         response = client.chat.completions.create(
@@ -82,8 +84,9 @@ def analyze_with_openai(url, text):
 
         response_text = response.choices[0].message.content
         if "yes" in response_text.lower():
-            findings.append({url : response_text})
-            print("New finding - URL: " + url)
+            #findings.append({url : response_text})
+            findings.append({"title": item['title'], "link": item['link'], "text": response_text})
+            print("New finding - URL: " + item['link'])
             print(response_text)
 
 def get_url_history():
@@ -120,17 +123,54 @@ def write_markdown(
         file.write("| URL | Result |\n")
         file.write("| ------ | ------ |\n")
 
-        for finding in list_findings:
-            for key, value in finding.items():
-                # Process the "value" containing the findings text so it doesn't blow up the layout
-                processed_response = ' '.join(value.splitlines()).strip()
-                processed_response_quote = "<blockquote>" + processed_response + "</blockquote>"
-                file.write(f"| [Link]({key}) | {processed_response_quote} |\n")
+        for item in list_findings:
+            # Process the "value" containing the findings text so it doesn't blow up the layout
+            processed_response = ' '.join(item['text'].splitlines()).strip()
+            processed_response_quote = "<blockquote>" + processed_response + "</blockquote>"
+            file.write(f"| [{item['title']}]({item['link']}) | {processed_response_quote} |\n")
 
         if(len(feed_list_outdated_feeds) > 0):
             file.write("Outdated feeds are:\n\n")
             for url in feed_list_outdated_feeds:
                 file.write(f"- {url}\n")
+    return filename
+
+def send_mail(report_filename):
+    mailer = emails.NewEmail(os.getenv('MAILERSEND_API_KEY'))
+    mail_body = {}
+
+    mail_from = {
+        "name": "AI",
+        "email": os.getenv('MAIL_SENDER')
+    }
+
+    recipients = [
+        {
+            "name": "Reader",
+            "email": os.getenv('MAIL_RECIPIENT')
+        }
+    ]
+
+    attachment = open(report_filename, 'rb')
+    att_read = attachment.read()
+    att_base64 = base64.b64encode(bytes(att_read))
+    attachments = [
+        {
+            "id": "report",
+            "filename": report_filename,
+            "content": f"{att_base64.decode('ascii')}",
+            "disposition": "attachment"
+        }
+    ]
+
+    mailer.set_mail_from(mail_from, mail_body)
+    mailer.set_mail_to(recipients, mail_body)
+    mailer.set_subject("New Knowledge report", mail_body)
+    mailer.set_plaintext_content("Read the new findings attached.\n\nPrompt was\n" + os.getenv('PROMPT') + "\n\nFeeds were\n" + os.getenv('FEEDS'), mail_body)
+    mailer.set_attachments(attachments, mail_body)
+
+    mailer.send(mail_body)
+
 
 start_time = time.time()
 
@@ -164,7 +204,7 @@ for source in feed_list:
     for item in feed.entries:
         publish_field = get_publish_field_for_article(item)
         if(is_article_outdated(publish_field) == False):
-            feed_all.append(f'{item.link}')
+            feed_all.append({"title": item.title, "link": item.link})
 
 count_urls = 0
 count_total_characters = 0
@@ -173,7 +213,7 @@ count_total_tokens = 0
 # Populate history so we don't analyze the same URLs twice.
 get_url_history()
 
-for url in feed_all:
+for entry in feed_all:
     count_urls = count_urls + 1
     
     # For testing
@@ -182,13 +222,13 @@ for url in feed_all:
     #    break
     
     # Check if this URL was already processed    
-    if url in urls_set:
-        print(f"{url} has already been analyzed")
+    if entry['link'] in urls_set:
+        print(f"{entry['link']} has already been analyzed")
     else:
-        print(f"{url} is new and will be analyzed")
+        print(f"{entry['link']} is new and will be analyzed")
 
-        # Get the text of the artcle / blog post
-        page = requests.get(url).text
+        # Get the text of the article / blog post
+        page = requests.get(entry['link']).text
         soup = BeautifulSoup(page, "html.parser")
         
         text = soup.getText()
@@ -202,15 +242,14 @@ for url in feed_all:
         print("Processing article " + soup.title.get_text() + ", text length " + str(len(clean_text)))
         #print(clean_text)
 
-        analyze_with_openai(url, clean_text)
-        add_url_to_history(url)
+        analyze_with_openai(entry, clean_text)
+        #add_url_to_history(entry['url'])
 
 end_time = time.time()
 rounded_elapsed_time = round((end_time - start_time), 1)
 
-write_markdown(len(feed_list), (count_urls - 1), count_total_characters, count_total_tokens, get_cost_from_tokens(count_total_tokens), findings, rounded_elapsed_time)
-
-# TODO: Send via mail
+report_file = write_markdown(len(feed_list), (count_urls - 1), count_total_characters, count_total_tokens, get_cost_from_tokens(count_total_tokens), findings, rounded_elapsed_time)
+send_mail(report_file)
 
 print(str(count_urls - 1) + " articles in total in this RSS feed with " + str(count_total_characters) + " characters and " + str(count_total_tokens) + " tokens in total leading to costs of approx. $" + str(get_cost_from_tokens(count_total_tokens)))
 print(f"Execution of the script took {rounded_elapsed_time} seconds")
