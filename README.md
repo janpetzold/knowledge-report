@@ -15,6 +15,8 @@ I just run this on my local machine via
 
 A full run for me includes 62 blogs, last time I executed this it resulted in 1619 articles with almost 20 mio. characters / 4 mio. words (3.8 mio. tokens) in total. The analysis of these via OpenAI API cost ~$1.90. The script ran for approx. 78 minutes.
 
+I run the script on a weekly basis which usually results in ~1100 new articles that are analyzed that lead to something like 500.000 tokens / $0.25 costs.
+
 ## Configuration
 
 Everything relevant needs to be supplied via `.env` file in the main folder with the following variables:
