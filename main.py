@@ -97,7 +97,7 @@ def get_url_history():
                 urls_set.add(url)
 
 def add_url_to_history(url):
-    file = open("history.log", "a")
+    file = open("history_architecture.log", "a")
     file.write(url)
     file.write("\n")
     file.close()
