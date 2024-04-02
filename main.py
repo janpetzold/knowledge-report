@@ -118,16 +118,19 @@ def write_markdown(
     with open(filename, "w") as file:
         file.write("# Knowledge report\n\n")
         file.write(f"This analysis ran on {datetext} in {elapsed_time} seconds.\n\n")
-        file.write(f"In total {number_of_feeds} feeds with {number_of_articles} new articles were analyzed. The total number of characters was {number_of_characters}, token count {number_of_tokens}, approximate OpenAI costs ${openai_costs}.\n\n")
+        file.write(f"In total {number_of_feeds} feeds with {number_of_articles} new articles were analyzed. There were {len(list_findings)} findings. The total number of characters was {number_of_characters}, token count {number_of_tokens}, approximate OpenAI costs ${openai_costs}.\n\n")
         file.write("## Findings\n\n")
         file.write("| URL | Result |\n")
         file.write("| ------ | ------ |\n")
 
         for item in list_findings:
-            # Process the "value" containing the findings text so it doesn't blow up the layout
-            processed_response = ' '.join(item['text'].splitlines()).strip()
-            processed_response_quote = "<blockquote>" + processed_response + "</blockquote>"
-            file.write(f"| [{item['title']}]({item['link']}) | {processed_response_quote} |\n")
+            # Remove | since it blows up Markdown
+            processed_title = item['title'].replace("|", "")
+
+            # Process the summary text containing the findings text so it doesn't blow up the layout
+            processed_content = ' '.join(item['text'].splitlines()).strip()
+            processed_content_quote = "<blockquote>" + processed_content + "</blockquote>"
+            file.write(f"| [processed_title]({item['link']}) | {processed_content_quote} |\n")
 
         if(len(feed_list_outdated_feeds) > 0):
             file.write("Outdated feeds are:\n\n")
