@@ -84,7 +84,6 @@ def analyze_with_openai(item, text):
 
         response_text = response.choices[0].message.content
         if "yes" in response_text.lower():
-            #findings.append({url : response_text})
             findings.append({"title": item['title'], "link": item['link'], "text": response_text})
             print("New finding - URL: " + item['link'])
             print(response_text)
@@ -97,7 +96,7 @@ def get_url_history():
                 urls_set.add(url)
 
 def add_url_to_history(url):
-    file = open("history_architecture.log", "a")
+    file = open("history.log", "a")
     file.write(url)
     file.write("\n")
     file.close()
@@ -130,7 +129,7 @@ def write_markdown(
             # Process the summary text containing the findings text so it doesn't blow up the layout
             processed_content = ' '.join(item['text'].splitlines()).strip()
             processed_content_quote = "<blockquote>" + processed_content + "</blockquote>"
-            file.write(f"| [processed_title]({item['link']}) | {processed_content_quote} |\n")
+            file.write(f"| [{processed_title}]({item['link']}) | {processed_content_quote} |\n")
 
         if(len(feed_list_outdated_feeds) > 0):
             file.write("Outdated feeds are:\n\n")
@@ -143,13 +142,13 @@ def send_mail(report_filename):
     mail_body = {}
 
     mail_from = {
-        "name": "AI",
+        "name": "AI Report",
         "email": os.getenv('MAIL_SENDER')
     }
 
     recipients = [
         {
-            "name": "Reader",
+            "name": os.getenv('MAIL_RECIPIENT'),
             "email": os.getenv('MAIL_RECIPIENT')
         }
     ]
@@ -181,6 +180,9 @@ load_dotenv()
 
 feed_urls = os.getenv('FEEDS')
 feed_list = feed_urls.split(",")
+
+# Test - just use first blog
+# feed_list = [feed_list[0]]
 
 # Collect all feeds without update in the last 30 days here
 feed_list_outdated_feeds = []
@@ -246,7 +248,7 @@ for entry in feed_all:
         #print(clean_text)
 
         analyze_with_openai(entry, clean_text)
-        #add_url_to_history(entry['url'])
+        add_url_to_history(entry['link'])
 
 end_time = time.time()
 rounded_elapsed_time = round((end_time - start_time), 1)

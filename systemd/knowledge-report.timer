@@ -1,0 +1,9 @@
+[Unit]
+Description=Timer for Knowledge report script every Friday at 8 AM UTC
+
+[Timer]
+OnCalendar=Fri *-*-* 08:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

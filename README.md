@@ -44,6 +44,25 @@ I wanted a simple report with basic layouting capabilities that is easy to creat
 
 I created this basically to collect interesting blog posts for myself. Since I use email anyway this is a good way to flag it for whenever I have the time to go through it and serves as some kind of backup as well.
 
+## Run periodically
+
+I've set this up to run once per week on a Cloud VM. To do this I've set up a systemd service, see `systemd` subdirectory. Some helpful commands:
+
+    # Place both files at /etc/systemd/system/. Then to set them up...
+    sudo systemctl daemon-reload
+    sudo systemctl enable knowledge-report.timer
+    sudo systemctl start knowledge-report.timer
+
+    # See status of timers
+    sudo systemctl list-timers --all
+
+    # Read logs
+    sudo journalctl -f -u knowledge-report.service
+
+Make sure to install the dependencies as root upfront since systemd executes all jobs as root:
+
+    sudo pip3 install -r requirements.txt
+
 ## TODOs
 
 - [x] externalize feed URLs to .env

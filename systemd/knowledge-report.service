@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Knowledge report script every Friday at 8 AM UTC
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/jan/knowledge-report/main.py
+
+[Install]
+WantedBy=multi-user.target
