@@ -8,6 +8,8 @@ The URL for articles that were already analyzed are stored in a logfile (`histor
 
 ## Getting started & some numbers
 
+This script requires Python 3.10+.
+
 I just run this on my local machine via
 
     pip3 install -r requirements.txt
@@ -62,6 +64,8 @@ I've set this up to run once per week on a Cloud VM. To do this I've set up a sy
 Make sure to install the dependencies as root upfront since systemd executes all jobs as root:
 
     sudo pip3 install -r requirements.txt
+
+Also the history.log must be referenced as full path, e.g. `/home/ubuntu/knowledge-report/history.log`.
 
 ## TODOs
 

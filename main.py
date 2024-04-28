@@ -17,7 +17,7 @@ def get_last_update_field_for_feed(feed):
         return feed.updated
     elif (hasattr(feed, "feed") & hasattr(feed.feed, "updated")):
         return feed.feed.updated
-    elif (hasattr(feed.entries[0], "published")):
+    elif (len(feed.entries) > 0 and hasattr(feed.entries[0], "published")):
         return feed.entries[0].published
     else:
         # Fallback - return something old as indication to check the feed

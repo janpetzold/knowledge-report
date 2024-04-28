@@ -3,6 +3,11 @@ Description=Run Knowledge report script every Friday at 8 AM UTC
 
 [Service]
 Type=oneshot
+
+# No root privileges
+User=jan
+Group=jan
+
 ExecStart=/usr/bin/python3 /home/jan/knowledge-report/main.py
 
 [Install]
